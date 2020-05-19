@@ -33,17 +33,19 @@
     unexpected_open_error_message db "Unexpected open error!", 10, 13, '$'  
     unexpected_close_error_message db "Unexpected close error!", 10, 13, '$' 
     unexpected_read_error_message db "Unexpected read error!", 10, 13, '$' 
-    div_overflow_message db "Error! Division by 0.", 10, 13, '$' 
-    mul_overflow_message db "Error! Multiplication overflow.", 10, 13, '$'
-    add_overflow_message db "Error! Addition overflow.", 10, 13, '$' 
-    sub_overflow_message db "Error! Substraction overflow.", 10, 13, '$'  
+    div_overflow_message db  10, 13, "Error! Division by 0.", 10, 13, '$' 
+    mul_overflow_message db  10, 13, "Error! Multiplication overflow.", 10, 13, '$'
+    add_overflow_message db  10, 13, "Error! Addition overflow.", 10, 13, '$' 
+    sub_overflow_message db  10, 13, "Error! Substraction overflow.", 10, 13, '$'  
     minus_flag db 0
     input_message db "Your input:", 10, 13, '$' 
     wrong_input_message db 10, 13, "Wrong input! Check your file.", 10, 13, '$'
-    frame db "================================================================================", 10, 13, '$' 
+    frame db "================================================================================", 10, 13, '$'
+    ;buffer db "-80*500$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" 
     buffer db 288 dup ('$')  
-    checked_buffer db 289 dup ('$')  
-    test_buffer db "8*7-90*8*20+8/1+"
+    checked_buffer db 289 dup ('$')
+    ;test_buffer db "8*7-90*8*20+8/1+"  
+    ;test_buffer db "8*7-90*8*20+8/1+"
     checked_test_buffer db 288 dup ('$')
     amount_of_operands equ 7
     
@@ -200,12 +202,22 @@ check_input proc near
     mov bx, 0 ; size of operands
     mov dx, 0 ; amount of operands
      
-    je end_check_input_proc 
-    mov di, offset buffer
+    ;je end_check_input_proc 
+    mov di, offset buffer    
+   
+    mov al, '0' 
+    cmp ds:[di],al
+    jl input_error 
+    mov al, '9' 
+    cmp ds:[di],al
+    jg input_error
+    
+    
+    
 check_symbols:
     mov al, ds:[di]
-    ;cmp al, '$' 
-    ;je end_check_input_proc 
+    cmp al, '$' 
+    je end_check_input_proc 
     cmp al, '0'
     jl check_if_sign
     cmp al, '9'
@@ -267,11 +279,11 @@ end_check_input_proc:
     pop es
     lea si, buffer
     lea di, checked_buffer
-    mov ax, 16
+    mov ax, read_block_size
     sub ax, cx
     mov cx, ax
     rep movsb   
-    mov di, 16
+    mov di, read_block_size
     mov al, '0'
     cmp checked_buffer[di - 1], al
     jnl no_sign_at_the_end
@@ -379,8 +391,13 @@ operand_2_found:
     mov si, offset operand1
     mov ax, si
     mov operand_address, ax
-    call atoi
-    mov bx, ax ; converted 1 operand 
+    call atoi 
+    
+
+    
+    mov bx, ax ; converted 1 operand
+    
+
     mov si, offset operand2
     mov ax, si
     mov operand_address, ax
@@ -404,11 +421,16 @@ operand_2_found:
     int 21h
     pop bx 
     pop ax
-    call dword ptr overlay_offset
+    call dword ptr overlay_offset 
+
+    ;mul bx ; in ax - result   
     
-       
+    cmp ax, 32767
+    ja mul_overflow 
+    cmp dx, 0
+    jne mul_overflow   
     
-    ;mul bx ; in ax - result 
+   
     jc mul_overflow
     jmp not_operands_division
 mul_overflow:
@@ -428,17 +450,21 @@ operands_division:
     cmp bx, 0
     je div_overflow 
     
-    
+    push ax
+    push bx
     mov ax, ds
     mov es, ax  
     mov bx, offset param_block
     mov dx, offset overlay_path_div
     mov ah, 4bh
     mov al, 3
-    int 21h
+    int 21h  
+    pop bx
+    pop ax  
+    xor dx, dx
     call dword ptr overlay_offset
     
-        
+       
     ;div bx
      
 not_operands_division:     
@@ -631,7 +657,8 @@ operand_2_found1:
      
     ;add ax, bx ; in ax - result 
     jc add_overflow  
-    
+    cmp ax, 32767
+    ja add_overflow 
     
     mov bx, 2
 m: 
@@ -679,9 +706,12 @@ operands_substraction:
     pop bx
     pop ax
     call dword ptr overlay_offset    
-    ;sub ax, bx    
+    ;sub ax, bx   
     
-    jc sub_overflow 
+    
+    ;jc sub_overflow 
+    cmp ax, -32768
+    jl sub_overflow 
   
     mov bx, 2
 m1: 
@@ -711,7 +741,8 @@ not_operands_substraction:
     
     
    
-    sub ax, bx  
+    sub ax, bx
+     
     
     
     
@@ -769,7 +800,7 @@ itoa proc near
     jne not_zero 
     add bl, 30h
     mov es:[di], bl 
-    inc bx
+    mov bx, 1
     mov result_size, bx
     jmp end_print_array
 not_zero:       
@@ -963,10 +994,12 @@ atoi endp
 
 
 start:    
-    ;call check_input
+
     mov ax, @data      
-    mov ds, ax   
-   ; call check_input
+    mov ds, ax  
+    
+
+    ;call check_input
     ;call calculations
     mov code_seg, cs
     mov ax, es ; PSP
@@ -977,7 +1010,7 @@ start:
     jc change_size_error
     
     
-    mov bx, 1000h
+    mov bx, 100h
     mov ah, 48h
     int 21h
     jc allocation_error 
