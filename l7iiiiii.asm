@@ -285,8 +285,11 @@ check_amount_of_operands:
 input_error: 
     print_string wrong_input_message 
     mov al, 1        
-    mov wrong_input_flag, al
-end_check_input_proc:  
+    mov wrong_input_flag, al 
+    mov bx, 0
+end_check_input_proc: 
+    cmp bx, 5 ; max number length
+    jg input_error 
     push es
     push ds
     pop es
@@ -331,6 +334,7 @@ search_for_1_operand:
     jmp search_for_1_operand  
      
 operand_1_found:
+
     mov al, '*' 
     cmp ds:[di], al
     je copy_sign
