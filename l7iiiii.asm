@@ -246,6 +246,17 @@ check_if_first:
     cmp cx, read_amount   
     ;cmp cx, 16  ; sign is the first
     je input_error 
+
+     mov al, ds:[di+1]
+     cmp al, '+'
+    je input_error
+    cmp al, '*'
+    je input_error
+    cmp al, '/'
+    je input_error
+    cmp al, '-'
+    je input_error
+
     ;cmp cx, 1  ; sign is the last
     ;je input_error
 check_operand_size:    
@@ -418,7 +429,8 @@ operand_2_found:
     mov dx, offset overlay_path_mul
     mov ah, 4bh
     mov al, 3
-    int 21h
+    int 21h 
+    jc load_error 
     pop bx 
     pop ax
     call dword ptr overlay_offset 
@@ -458,7 +470,8 @@ operands_division:
     mov dx, offset overlay_path_div
     mov ah, 4bh
     mov al, 3
-    int 21h  
+    int 21h 
+    jc load_error  
     pop bx
     pop ax  
     xor dx, dx
@@ -650,7 +663,8 @@ operand_2_found1:
     mov dx, offset overlay_path_add
     mov ah, 4bh
     mov al, 3
-    int 21h  
+    int 21h
+    jc load_error   
     pop bx
     pop ax 
     call dword ptr overlay_offset
@@ -677,12 +691,12 @@ m:
     
 add_overflow:
     print_string add_overflow_message 
-    mov bl, 1
+    mov al, 1
     mov arithmetic_error_flag, al
     jmp end_additions_substractions     
 sub_overflow:
     print_string sub_overflow_message
-    mov bl, 1
+    mov al, 1
     mov arithmetic_error_flag, al 
     jmp end_additions_substractions       
     
@@ -702,16 +716,18 @@ operands_substraction:
     mov dx, offset overlay_path_sub
     mov ah, 4bh
     mov al, 3
-    int 21h  
+    int 21h
+    jc load_error  
     pop bx
     pop ax
-    call dword ptr overlay_offset    
+    call dword ptr overlay_offset
+        
     ;sub ax, bx   
     
     
     ;jc sub_overflow 
-    cmp ax, -32768
-    jl sub_overflow 
+    cmp ax, 32768
+    ja sub_overflow 
   
     mov bx, 2
 m1: 
@@ -775,6 +791,41 @@ end_mov_left1:
     mov minus_flag, al
     mov result_size, ax
     jmp additions_substractions
+    
+    
+load_error:
+overlay_not_found:
+    cmp ax, 02h
+    jne file_access_forbidden
+    print_string overlay_not_found_message
+    jmp program_end  
+file_access_forbidden:
+    cmp ax, 05h 
+    jne load_not_enough_memory
+    print_string file_access_forbidden_message 
+    jmp program_end 
+load_not_enough_memory:
+    cmp ax, 08h 
+    jne wrong_environment
+    print_string not_enough_memory_message 
+    jmp program_end      
+wrong_environment:  
+    cmp ax, 0Ah  
+    jne wrong_format 
+    print_string wrong_environment_message 
+    jmp program_end 
+wrong_format:  
+    cmp ax, 0Bh  
+    jne load_unexpected_error 
+    print_string wrong_format_message 
+    jmp program_end    
+load_unexpected_error:     
+    print_string unexpected_error_message
+    jmp program_end     
+    
+    
+    
+    
     
 end_additions_substractions:        
         
@@ -1049,11 +1100,11 @@ start:
     mov [bx], ax
     ;mov ax, 0
     mov [bx+2], ax   
-    mov dx, offset overlay_path
-    mov ah, 4bh
-    mov al, 3
-    int 21h
-    jc load_error
+;    mov dx, offset overlay_path
+;    mov ah, 4bh
+;    mov al, 3
+;    int 21h
+;    jc load_error
      
     ;print_string a
      
@@ -1073,7 +1124,10 @@ start:
     
    ; call dword ptr entry
     call read_file
-    call check_input 
+    call check_input
+    mov al, wrong_input_flag
+    cmp al, 1
+    je program_end 
     call calculations
     mov al, arithmetic_error_flag
     cmp al, 1
@@ -1135,35 +1189,35 @@ allocation_unexpected_error:
 
 
 
-load_error:
-overlay_not_found:
-    cmp ax, 02h
-    jne file_access_forbidden
-    print_string overlay_not_found_message
-    jmp program_end  
-file_access_forbidden:
-    cmp ax, 05h 
-    jne load_not_enough_memory
-    print_string file_access_forbidden_message 
-    jmp program_end 
-load_not_enough_memory:
-    cmp ax, 08h 
-    jne wrong_environment
-    print_string not_enough_memory_message 
-    jmp program_end      
-wrong_environment:  
-    cmp ax, 0Ah  
-    jne wrong_format 
-    print_string wrong_environment_message 
-    jmp program_end 
-wrong_format:  
-    cmp ax, 0Bh  
-    jne load_unexpected_error 
-    print_string wrong_format_message 
-    jmp program_end    
-load_unexpected_error:     
-    print_string unexpected_error_message
-    jmp program_end   
+;load_error:
+;overlay_not_found:
+;    cmp ax, 02h
+;    jne file_access_forbidden
+;    print_string overlay_not_found_message
+;    jmp program_end  
+;file_access_forbidden:
+;    cmp ax, 05h 
+;    jne load_not_enough_memory
+;    print_string file_access_forbidden_message 
+;    jmp program_end 
+;load_not_enough_memory:
+;    cmp ax, 08h 
+;    jne wrong_environment
+;    print_string not_enough_memory_message 
+;    jmp program_end      
+;wrong_environment:  
+;    cmp ax, 0Ah  
+;    jne wrong_format 
+;    print_string wrong_environment_message 
+;    jmp program_end 
+;wrong_format:  
+;    cmp ax, 0Bh  
+;    jne load_unexpected_error 
+;    print_string wrong_format_message 
+;    jmp program_end    
+;load_unexpected_error:     
+;    print_string unexpected_error_message
+;    jmp program_end   
     
     
         
